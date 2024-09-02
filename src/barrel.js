@@ -174,7 +174,11 @@ class BarrelFile {
             specifierObj.localName = specifier.local.name;
             specifierObj.type = AST.getSpecifierType(specifier);
             const importPath = node.source.value;
-            specifierObj.esmPath = resolver.resolve(importPath, this.path).absEsmFile;
+            if (resolvedPath && (resolvedPath.absEsmFile || resolvedPathObject.absCjsFile)) {
+                specifierObj.esmPath = resolvedPath.absEsmFile ?? resolvedPathObject.absCjsFile;
+            } else {
+                throw new Error(`Failed to resolve ESM path for import: ${importPath}`);
+            }
             const { localName } = specifierObj;
             this.importMapping[localName] = specifierObj;
         });

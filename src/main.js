@@ -18,7 +18,7 @@ const importDeclarationVisitor = (path, state) => {
   logger.log(`Source import line: ${generate(path.node, { comments: false, concise: true }).code}`);
   resolver.from = parsedJSFile;
   const resolvedPathObject = resolver.resolve(importsPath ,parsedJSFile);
-  const barrelFile = BarrelFileManagerFacade.getBarrelFile(resolvedPathObject.absEsmFile);
+  const barrelFile = BarrelFileManagerFacade.getBarrelFile(resolvedPathObject.absEsmFile ?? resolvedPathObject.absCjsFile);
   if (!barrelFile.isBarrelFileContent) return;
   const directSpecifierASTArray = importsSpecifiers.map((specifier) =>
     {
