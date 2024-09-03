@@ -21,7 +21,9 @@ class DefaultPatternExport {
   getSpecifierPattern(specifierObj) {
     const esmPath = this.getEsmPathPattern(specifierObj.esmPath, specifierObj.exportedName);
     const type = specifierObj.type;
-    const localName = type !=="namespace" && specifierObj.localName.replaceAll(specifierObj.exportedName, "${specifier}");
+	// not sure why localName can be undefined at times
+	// found one location, ToDo: check for others
+    const localName = type !=="namespace" && (specifierObj.localName ?? '').replaceAll(specifierObj.exportedName, "${specifier}");
     const exportedName = specifierObj.exportedName.replaceAll(specifierObj.exportedName, "${specifier}");
     return { esmPath, type, localName, exportedName };
   }
@@ -103,7 +105,16 @@ class BarrelFile {
               specifierObj.localName = specifier?.local?.name;
               specifierObj.type = AST.getSpecifierType(specifier);
               const exportPath = node.source.value;
-              specifierObj.esmPath = resolver.resolve(exportPath, this.path).absEsmFile;
+              var resolved = resolver.resolve(exportPath, this.path);
+			  // ToDo: Check if still needed
+              if(!resolved){
+                throw new Error("Couldn't resolve " + specifierObj.name + "/" + specifierObj.localName + ":" + specifierObj.type + " from '" + exportPath + "' for '" + this.path + "'")
+              } else if(ospath.isAbsolute(resolved.absEsmFile)){
+                specifierObj.esmPath = resolved.absEsmFile;
+              } else {
+                specifierObj.esmPath = ospath.join(process.cwd(),"node_modules" , resolved.absEsmFile);
+                resolved.absEsmFile = specifierObj.esmPath;
+              }
             } else {
               // if node.source doesnt exist -> export { abc };
               const localName = specifier?.local?.name;
@@ -146,6 +157,11 @@ class BarrelFile {
           if (localName in this.importMapping) {
             const specifierObj = this.importMapping[localName].toExportSpecifier();
             specifierObj.exportedName = "default";
+            /* localName is not set in this scenario: 
+                module.exports.default = StyleToObject; // ESM support
+               I cannot explain why. 
+            */
+            specifierObj.localName ??= localName; 
             const { exportedName } = specifierObj;
             const deepestDirectSpecifier = this.getDeepestDirectSpecifierObject(specifierObj);
             deepestDirectSpecifier.esmPath = PathFunctions.normalizeModulePath(deepestDirectSpecifier.esmPath);
@@ -174,11 +190,11 @@ class BarrelFile {
             specifierObj.localName = specifier.local.name;
             specifierObj.type = AST.getSpecifierType(specifier);
             const importPath = node.source.value;
-            if (resolvedPath && (resolvedPath.absEsmFile || resolvedPathObject.absCjsFile)) {
-                specifierObj.esmPath = resolvedPath.absEsmFile ?? resolvedPathObject.absCjsFile;
-            } else {
-                throw new Error(`Failed to resolve ESM path for import: ${importPath}`);
-            }
+			const resolved = resolver.resolve(importPath, this.path)
+			if(!resolved){
+				return; // ToDO: check if still reached
+			}
+            specifierObj.esmPath = resolved.absEsmFile;
             const { localName } = specifierObj;
             this.importMapping[localName] = specifierObj;
         });
@@ -232,8 +248,15 @@ class BarrelFile {
     }    
 
     getDeepestDirectSpecifierObject(specifierObj) {
-        const { esmPath, localName } = specifierObj;
+        var { esmPath, localName } = specifierObj;
         if (BarrelFile.isBarrelFilename(esmPath)) {
+          if (!ospath.isAbsolute(esmPath)) {
+			// ToDO: Check if still needed
+            // If the path is not absolute, prepend the current directory
+            let newpath = ospath.join(process.cwd(),"node_modules" , esmPath);
+            specifierObj.esmPath = newpath;
+            esmPath = newpath;
+          }
           const barrelFile = BarrelFileManagerFacade.getBarrelFile(esmPath);
           if (barrelFile.isBarrelFileContent) {
             const deepestSpecifier = barrelFile.getDirectSpecifierObject(localName);
@@ -316,8 +339,17 @@ class BarrelFilesPackagesManager {
   }
 
   getBarrelFileManager(path) {
-    const moduleDir = ospath.dirname(path)
-    const mainPackagePath = Package.getHighestParentPackageDir(moduleDir);
+    var moduleDir = ospath.dirname(path)
+    var mainPackagePath = Package.getHighestParentPackageDir(moduleDir);
+    if(mainPackagePath === undefined){
+      if (!ospath.isAbsolute(path)) {
+		// ToDO: Check if still needed
+        // If the path is not absolute, prepend the current directory
+        path = ospath.join(process.cwd(),"node_modules" , path);
+        moduleDir = ospath.dirname(path)
+        mainPackagePath = Package.getHighestParentPackageDir(moduleDir);
+      }
+    }
     const packageName = PathFunctions.normalizeModulePath(mainPackagePath);
     let barrelFilesPackage;
     if (!this.barrelFilesByPackage.has(packageName)) {
