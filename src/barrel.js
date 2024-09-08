@@ -21,7 +21,9 @@ class DefaultPatternExport {
   getSpecifierPattern(specifierObj) {
     const esmPath = this.getEsmPathPattern(specifierObj.esmPath, specifierObj.exportedName);
     const type = specifierObj.type;
-    const localName = type !=="namespace" && specifierObj.localName.replaceAll(specifierObj.exportedName, "${specifier}");
+	// not sure why localName can be undefined at times
+	// found one location, ToDo: check for others
+    const localName = type !=="namespace" && (specifierObj.localName ?? '').replaceAll(specifierObj.exportedName, "${specifier}");
     const exportedName = specifierObj.exportedName.replaceAll(specifierObj.exportedName, "${specifier}");
     return { esmPath, type, localName, exportedName };
   }
@@ -104,7 +106,15 @@ class BarrelFile {
               specifierObj.type = AST.getSpecifierType(specifier);
               const exportPath = node.source.value;
               var resolved = resolver.resolve(exportPath, this.path);
-              specifierObj.esmPath = resolved.absEsmFile;
+			  // ToDo: Check if still needed
+              if(!resolved){
+                throw new Error("Couldn't resolve " + specifierObj.name + "/" + specifierObj.localName + ":" + specifierObj.type + " from '" + exportPath + "' for '" + this.path + "'")
+              } else if(ospath.isAbsolute(resolved.absEsmFile)){
+                specifierObj.esmPath = resolved.absEsmFile;
+              } else {
+                specifierObj.esmPath = ospath.join(process.cwd(),"node_modules" , resolved.absEsmFile);
+                resolved.absEsmFile = specifierObj.esmPath;
+              }
             } else {
               // if node.source doesnt exist -> export { abc };
               const localName = specifier?.local?.name;
@@ -116,12 +126,6 @@ class BarrelFile {
             const { exportedName } = specifierObj;
             const deepestDirectSpecifier = this.getDeepestDirectSpecifierObject(specifierObj);
             deepestDirectSpecifier.esmPath = PathFunctions.normalizeModulePath(deepestDirectSpecifier.esmPath);
-            // you want this to be absolute, sometimes (see getDeepestDirectSpecifierObject), sometimes not it seems
-            // so for now, keep the check in getDeepestDirectSpecifierObject
-            //if(!ospath.isAbsolute(deepestDirectSpecifier.esmPath)){
-            //  let newpath = ospath.join(process.cwd(),"node_modules" , deepestDirectSpecifier.esmPath);
-            //  deepestDirectSpecifier.esmPath = newpath;
-            //}
             if (!this.defaultPatternExport.isMatchDefaultPattern(deepestDirectSpecifier)) {
               this.exportMapping[exportedName] = deepestDirectSpecifier;
             }
@@ -186,7 +190,10 @@ class BarrelFile {
             specifierObj.localName = specifier.local.name;
             specifierObj.type = AST.getSpecifierType(specifier);
             const importPath = node.source.value;
-            const resolved = resolver.resolve(importPath, this.path)
+			const resolved = resolver.resolve(importPath, this.path)
+			if(!resolved){
+				return; // ToDO: check if still reached
+			}
             specifierObj.esmPath = resolved.absEsmFile;
             const { localName } = specifierObj;
             this.importMapping[localName] = specifierObj;
@@ -244,8 +251,8 @@ class BarrelFile {
         var { esmPath, localName } = specifierObj;
         if (BarrelFile.isBarrelFilename(esmPath)) {
           if (!ospath.isAbsolute(esmPath)) {
+			// ToDO: Check if still needed
             // If the path is not absolute, prepend the current directory
-            // ToDO: Check how esmPath is set in the first place
             let newpath = ospath.join(process.cwd(),"node_modules" , esmPath);
             specifierObj.esmPath = newpath;
             esmPath = newpath;
@@ -334,6 +341,15 @@ class BarrelFilesPackagesManager {
   getBarrelFileManager(path) {
     var moduleDir = ospath.dirname(path)
     var mainPackagePath = Package.getHighestParentPackageDir(moduleDir);
+    if(mainPackagePath === undefined){
+      if (!ospath.isAbsolute(path)) {
+		// ToDO: Check if still needed
+        // If the path is not absolute, prepend the current directory
+        path = ospath.join(process.cwd(),"node_modules" , path);
+        moduleDir = ospath.dirname(path)
+        mainPackagePath = Package.getHighestParentPackageDir(moduleDir);
+      }
+    }
     const packageName = PathFunctions.normalizeModulePath(mainPackagePath);
     let barrelFilesPackage;
     if (!this.barrelFilesByPackage.has(packageName)) {
