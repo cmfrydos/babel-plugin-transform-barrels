@@ -180,7 +180,7 @@ class BarrelFile {
             specifierObj.localName = specifier.local.name;
             specifierObj.type = AST.getSpecifierType(specifier);
             const importPath = node.source.value;
-			      const resolved = resolver.resolve(importPath, this.path)
+			const resolved = resolver.resolve(importPath, this.path)
             specifierObj.esmPath = resolved.absEsmFile;
             const { localName } = specifierObj;
             this.importMapping[localName] = specifierObj;
