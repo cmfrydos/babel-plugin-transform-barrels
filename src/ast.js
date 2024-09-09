@@ -39,20 +39,33 @@ class AST {
       }
     }
 
-    static createASTImportDeclaration = ({localName, importedName, path, type}) => {
+    static createASTImportDeclaration = ({localName, importedName, path, type, originalNode}) => {
       let astImportSpecifier;
       switch (type) {
         case "named":
-          astImportSpecifier = t.importSpecifier(t.identifier(localName),t.identifier(importedName))
+          astImportSpecifier = t.importSpecifier(t.identifier(localName), t.identifier(importedName));
           break;
         case "namespace":
-          astImportSpecifier = t.importNamespaceSpecifier(t.identifier(localName))
+          astImportSpecifier = t.importNamespaceSpecifier(t.identifier(localName));
           break;
         default:
-          astImportSpecifier = t.importDefaultSpecifier(t.identifier(localName))
+          astImportSpecifier = t.importDefaultSpecifier(t.identifier(localName));
       }
-      return t.importDeclaration([astImportSpecifier], t.stringLiteral(path));
-    }  
+    
+      const newImportDeclaration = t.importDeclaration([astImportSpecifier], t.stringLiteral(path));
+    
+      // Clone original node and apply its location to the new import declaration for source mapping
+      if (originalNode) {
+        const clonedNode = t.cloneNode(originalNode, false, false);
+        newImportDeclaration.loc = clonedNode.loc;
+        newImportDeclaration.start = clonedNode.start;
+        newImportDeclaration.end = clonedNode.end;
+        newImportDeclaration.leadingComments = clonedNode.leadingComments;
+        newImportDeclaration.trailingComments = clonedNode.trailingComments;
+      }
+    
+      return newImportDeclaration;
+    }
   }
 
 module.exports = AST;

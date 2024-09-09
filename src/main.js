@@ -6,6 +6,10 @@ const resolver = require("./resolver");
 const BarrelFileManagerFacade = require("./barrel");
 const pluginOptions = require("./pluginOptions");
 const logger = require("./logger");
+const pathModule = require("path");
+const fs = require("fs");
+
+const outputToTempFile = false;
 
 const importDeclarationVisitor = (path, state) => {
   const importsSpecifiers = path.node.specifiers;
@@ -22,18 +26,45 @@ const importDeclarationVisitor = (path, state) => {
     return; // do nothing, raw means import as string
   }
   const barrelFile = BarrelFileManagerFacade.getBarrelFile(resolvedPathObject.absEsmFile);
+  var lines = []
   if (!barrelFile.isBarrelFileContent) return;
   const directSpecifierASTArray = importsSpecifiers.map((specifier) =>
     {
       const importedName = specifier?.imported?.name || "default";
       const importSpecifier = barrelFile.getDirectSpecifierObject(importedName).toImportSpecifier();
       importSpecifier.localName = specifier.local.name;
-      const transformedASTImport = AST.createASTImportDeclaration(importSpecifier);
+      const transformedASTImport = AST.createASTImportDeclaration({
+        localName: importSpecifier.localName,
+        importedName: importSpecifier.importedName,
+        path: importSpecifier.path,
+        type: importSpecifier.type, // you need to determine the correct type based on your use case
+        originalNode: path.node // Pass the original path node for cloning
+      });
+      if (outputToTempFile){
+        lines.push(`// ${String(resolvedPathObject.absEsmFile)}`);
+        lines.push(generate(transformedASTImport).code);
+      }
       logger.log(`Transformed import line: ${generate(transformedASTImport).code}`);
       return transformedASTImport;
     }
   );
   path.replaceWithMultiple(directSpecifierASTArray);
+  if (!outputToTempFile) return;
+
+
+  let outputPath = parsedJSFile;
+
+  const relativePath = pathModule.relative(process.cwd(), outputPath);
+  const tmpOutputPath = pathModule.join(process.cwd(), 'tmp', relativePath);
+  const outputDir = pathModule.dirname(tmpOutputPath);
+  
+  const transformedCode = lines.join("\n");
+  if(transformedCode === "") return
+
+  fs.mkdirSync(outputDir, { recursive: true });
+  fs.writeFileSync(tmpOutputPath, transformedCode);
+
+  logger.log(`Transformed file written to: ${tmpOutputPath}`);
 };
 
 module.exports = function (babel) {
