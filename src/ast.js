@@ -39,7 +39,7 @@ class AST {
       }
     }
     
-    static createASTImportDeclaration = ({localName, importedName, path, type}) => {
+    static createASTImportDeclaration = ({localName, importedName, path, type, originalNode}) => {
       let astImportSpecifier;
       switch (type) {
         case "named":

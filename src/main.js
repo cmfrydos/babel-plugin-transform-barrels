@@ -32,7 +32,7 @@ const importDeclarationVisitor = (path, state) => {
         localName: importSpecifier.localName,
         importedName: importSpecifier.importedName,
         path: importSpecifier.path,
-        type: importSpecifier.type, // you need to determine the correct type based on your use case
+        type: importSpecifier.type,
         originalNode: path.node // Pass the original path node for cloning
       });
       logger.log(`Transformed import line: ${generate(transformedASTImport).code}`);

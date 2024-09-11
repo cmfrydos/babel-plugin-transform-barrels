@@ -149,7 +149,6 @@ class BarrelFile {
             specifierObj.exportedName = "default";
             /* localName is not set in this scenario: 
                 module.exports.default = StyleToObject; // ESM support
-               I cannot explain why. 
             */
             specifierObj.localName ??= localName; 
             const { exportedName } = specifierObj;
@@ -176,7 +175,9 @@ class BarrelFile {
         node.specifiers.forEach((specifier) => {
             // import {abc, def} from './abc';
             const specifierObj = SpecifierFactory.createSpecifier("import");
-            specifierObj.importedName = specifier?.imported?.name;
+            // if this (importedName) is null, localName after toExportSpecifier() will be null
+            // it seems like it's null in this case: module.exports.default = StyleToObject; // ESM support
+            specifierObj.importedName = specifier?.imported?.name; 
             specifierObj.localName = specifier.local.name;
             specifierObj.type = AST.getSpecifierType(specifier);
             const importPath = node.source.value;
