@@ -38,18 +38,18 @@ class AST {
         }  
       }
     }
-
-    static createASTImportDeclaration = ({localName, importedName, path, type, originalNode}) => {
+    
+    static createASTImportDeclaration = ({localName, importedName, path, type}) => {
       let astImportSpecifier;
       switch (type) {
         case "named":
-          astImportSpecifier = t.importSpecifier(t.identifier(localName), t.identifier(importedName));
+          astImportSpecifier = t.importSpecifier(t.identifier(localName),t.identifier(importedName))
           break;
         case "namespace":
-          astImportSpecifier = t.importNamespaceSpecifier(t.identifier(localName));
+          astImportSpecifier = t.importNamespaceSpecifier(t.identifier(localName))
           break;
         default:
-          astImportSpecifier = t.importDefaultSpecifier(t.identifier(localName));
+          astImportSpecifier = t.importDefaultSpecifier(t.identifier(localName))
       }
     
       const newImportDeclaration = t.importDeclaration([astImportSpecifier], t.stringLiteral(path));

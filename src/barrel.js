@@ -180,7 +180,7 @@ class BarrelFile {
             specifierObj.localName = specifier.local.name;
             specifierObj.type = AST.getSpecifierType(specifier);
             const importPath = node.source.value;
-			const resolved = resolver.resolve(importPath, this.path)
+            const resolved = resolver.resolve(importPath, this.path)
             specifierObj.esmPath = resolved.absEsmFile;
             const { localName } = specifierObj;
             this.importMapping[localName] = specifierObj;
@@ -325,8 +325,8 @@ class BarrelFilesPackagesManager {
   }
 
   getBarrelFileManager(path) {
-    var moduleDir = ospath.dirname(path)
-    var mainPackagePath = Package.getHighestParentPackageDir(moduleDir);
+    const moduleDir = ospath.dirname(path)
+    const mainPackagePath = Package.getHighestParentPackageDir(moduleDir);
     const packageName = PathFunctions.normalizeModulePath(mainPackagePath);
     let barrelFilesPackage;
     if (!this.barrelFilesByPackage.has(packageName)) {
